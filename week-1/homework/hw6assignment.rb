@@ -28,8 +28,22 @@ class MyBoard < Board
     @grid = Array.new(num_rows) {Array.new(num_columns)}
     @current_block = MyPiece.next_piece(self)
     @score = 0
+    @cheating = false
     @game = game
     @delay = 500
+    @test = 1
+  end
+  
+  def score= x
+    @score = x
+  end
+
+  def is_cheating?
+    @cheating
+  end
+
+  def cheating= x
+    @cheating = x
   end
 
   def rotate_clockwise_180
@@ -39,12 +53,12 @@ class MyBoard < Board
     draw
   end
 
-    # gets the next piece
+  # gets the next piece
   def next_piece
+    @cheating = false
     @current_block = MyPiece.next_piece(self)
     @current_pos = nil
   end
-
 end
 
 class MyTetris < Tetris
@@ -60,6 +74,8 @@ class MyTetris < Tetris
     @root.bind('n', proc {self.new_game}) 
 
     @root.bind('p', proc {self.pause}) 
+
+    @root.bind('c', proc {self.cheat}) 
 
     @root.bind('q', proc {exitProgram})
     
@@ -80,6 +96,12 @@ class MyTetris < Tetris
     @root.bind('space' , proc {@board.drop_all_the_way}) 
   end
 
+  def cheat
+    if !@board.is_cheating? && @board.score >= 100
+      @board.cheating = true
+      @board.score = @board.score - 100
+    end
+  end
 end
 
 
