@@ -21,6 +21,10 @@ class MyPiece < Piece
     def self.next_piece (board)
       MyPiece.new(All_My_Pieces.sample, board)
     end
+
+    def self.next_cheat_piece (board)
+      MyPiece.new([[[0, 0]]], board)
+    end
  end
 
 class MyBoard < Board
@@ -55,9 +59,25 @@ class MyBoard < Board
 
   # gets the next piece
   def next_piece
-    @cheating = false
-    @current_block = MyPiece.next_piece(self)
+    if @cheating
+      @current_block = MyPiece.next_cheat_piece(self)
+      @cheating = false
+    else
+      @current_block = MyPiece.next_piece(self)
+    end    
     @current_pos = nil
+  end
+  
+  def store_current
+    locations = @current_block.current_rotation
+    displacement = @current_block.position
+    (0..(locations.size - 1)).each{|index|
+      current = locations[index]
+      @grid[current[1]+displacement[1]][current[0]+displacement[0]] =
+          @current_pos[index]
+    }
+    remove_filled
+    @delay = [@delay - 2, 80].max
   end
 end
 
@@ -70,30 +90,10 @@ class MyTetris < Tetris
     @board.draw
   end
 
-  def key_bindings  
-    @root.bind('n', proc {self.new_game}) 
-
-    @root.bind('p', proc {self.pause}) 
-
+  def key_bindings
+    super  
     @root.bind('c', proc {self.cheat}) 
-
-    @root.bind('q', proc {exitProgram})
-    
-    @root.bind('a', proc {@board.move_left})
-    @root.bind('Left', proc {@board.move_left}) 
-    
-    @root.bind('d', proc {@board.move_right})
-    @root.bind('Right', proc {@board.move_right})
-
     @root.bind('u', proc {@board.rotate_clockwise_180})
-
-    @root.bind('s', proc {@board.rotate_clockwise})
-    @root.bind('Down', proc {@board.rotate_clockwise})
-
-    @root.bind('w', proc {@board.rotate_counter_clockwise})
-    @root.bind('Up', proc {@board.rotate_counter_clockwise}) 
-    
-    @root.bind('space' , proc {@board.drop_all_the_way}) 
   end
 
   def cheat
