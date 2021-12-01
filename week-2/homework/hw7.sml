@@ -12,13 +12,14 @@
 *)
 datatype geom_exp = 
            NoPoints
-	 | Point of real * real (* represents point (x,y) *)
-	 | Line of real * real (* represents line (slope, intercept) *)
-	 | VerticalLine of real (* x value *)
-	 | LineSegment of real * real * real * real (* x1,y1 to x2,y2 *)
-	 | Intersect of geom_exp * geom_exp (* intersection expression *)
-	 | Let of string * geom_exp * geom_exp (* let s = e1 in e2 *)
-	 | Var of string
+					| Point of real * real (* represents point (x,y) *)
+					| Line of real * real (* represents line (slope, intercept) *)
+					| VerticalLine of real (* x value *)
+					| LineSegment of real * real * real * real (* x1,y1 to x2,y2 *)
+					| Intersect of geom_exp * geom_exp (* intersection expression *)
+					| Let of string * geom_exp * geom_exp (* let s = e1 in e2 *)
+					| Var of string
+					| Shift of real * real * geom_exp (* represents Shift(deltaX, deltaY, exp) *)
 (* CHANGE add shifts for expressions of the form Shift(deltaX, deltaY, exp *)
 
 exception BadProgram of string
@@ -182,28 +183,37 @@ fun intersect (v1,v2) =
          * lines segment have left (or, if vertical, bottom) coordinate first
 *)
 
+(* CHANGE: Add a case for Shift expressions *)
 fun eval_prog (e,env) =
     case e of
-	NoPoints => e (* first 5 cases are all values, so no computation *)
-      | Point _  => e
-      | Line _   => e
+			NoPoints => e (* first 5 cases are all values, so no computation *)
+      | Point _ => e
+      | Line _ => e
       | VerticalLine _ => e
-      | LineSegment _  => e
-      | Var s => 
-	(case List.find (fn (s2,v) => s=s2) env of
-	     NONE => raise BadProgram("var not found: " ^ s)
-	   | SOME (_,v) => v)
+      | LineSegment _ => e
+      | Var s => (case List.find (fn (s2,v) => s=s2) env of
+										NONE => raise BadProgram("var not found: " ^ s)
+										| SOME (_,v) => v)
       | Let(s,e1,e2) => eval_prog (e2, ((s, eval_prog(e1,env)) :: env))
       | Intersect(e1,e2) => intersect(eval_prog(e1,env), eval_prog(e2, env))
-(* CHANGE: Add a case for Shift expressions *)
+			| Shift(deltaX,deltaY,exp) => case eval_prog(exp, env) of
+																			NoPoints => NoPoints
+																			| Point(x,y) => Point(x + deltaX, y + deltaY)
+																			| Line(m,b) => Line(m, (b + deltaY) - (m * deltaX))
+																			| VerticalLine(x) => VerticalLine(x + deltaX)
+																			| LineSegment(x,y,w,z) => LineSegment(x + deltaX, y + deltaY, w + deltaX, z + deltaY) 
 
 (* CHANGE: Add function preprocess_prog of type geom_exp -> geom_exp *)
-fun preprocess_prog (geom_exp) = 
-	case geom_exp of
-		LineSegment(x,y,w,z) =>
-			case real_close(x,w) andalso real_close(y,z) of
-				true => Point(x,y)
-				| _ => case (x > w) orelse (real_close(x,w) andalso (y > z)) of
-									true => LineSegment(w,z,x,y)
-		| _ => geom_exp
-
+fun preprocess_prog(e) =
+    case e of
+        LineSegment(x1, y1, x2, y2) => 
+            if real_close(x1, x2)
+            then if real_close(y1, y2)
+                 then Point(x1, y1)
+                 else if y2 < y1
+                      then LineSegment(x2, y2, x1, y1)
+                      else e
+            else if x2 < x1
+                 then LineSegment(x2, y2, x1, y1)
+                 else e
+      	| _ => e
